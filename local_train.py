@@ -113,7 +113,7 @@ gan.compile(discriminator_optimizer, generator_optimizer, loss_object)
 
 EPOCHS = 1
 
-gan.fit(train_dataset, epochs=EPOCHS)
+gan.fit(train_dataset, epochs=EPOCHS, size=400)
 
 
 

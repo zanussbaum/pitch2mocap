@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import datetime
-from tqdm import tqdm
+import time
 
 class Pix2Pix:
     """TF2.0 version of Pix2Pix model with inspiration from TChollet
@@ -180,7 +180,13 @@ class Pix2Pix:
             tf.summary.scalar('disc_loss', disc_loss, step=epoch)
     
 
-    def fit(self, train_ds, epochs):
+    def fit(self, train_ds, epochs, size):
         for epoch in range(epochs):
-            for n, (input_image, target) in tqdm(train_ds.enumerate(), desc="Epoch {}".format(epoch)):
+            start = time.time()
+            progbar = tf.keras.utils.Progbar(size)
+            for n, (input_image, target) in train_ds.enumerate():
+                progbar.update(n.numpy()+1)
                 self.train_step(input_image, target, epoch)
+
+            tf.print('Time taken for epoch {} is {} sec\n'.format(epoch + 1,
+                                                        time.time()-start))
