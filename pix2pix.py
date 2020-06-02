@@ -184,8 +184,10 @@ class Pix2Pix:
         for epoch in range(epochs):
             start = time.time()
             progbar = tf.keras.utils.Progbar(size)
-            for n, (input_image, target) in train_ds.enumerate():
-                progbar.update(n.numpy()+1)
+            i = 0
+            for (input_image, target) in train_ds:
+                progbar.update(i + 1)
+                i += 1
                 self.train_step(input_image, target, epoch)
 
             tf.print('Time taken for epoch {} is {} sec\n'.format(epoch + 1,
