@@ -1,7 +1,8 @@
+import time
+import datetime
 import tensorflow as tf
 import numpy as np
-import datetime
-import time
+import matplotlib.pyplot as plt
 
 class Pix2Pix:
     """TF2.0 version of Pix2Pix model with inspiration from TChollet
@@ -15,6 +16,7 @@ class Pix2Pix:
         self.discriminator = self.build_discrimiator()
         self.generator = self.build_generator()
         self.log_dir = 'logs/'
+        self.checkpoint_dir = 'checkpoint/ckpt'
         self.writer = tf.summary.create_file_writer(
             self.log_dir + "fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         )
@@ -137,6 +139,11 @@ class Pix2Pix:
         self.g_optimizer = g_optimizer
         self.loss_object = loss_object
 
+        self.checkpoint = tf.train.Checkpoint(generator_optimizer=self.g_optimizer,
+                                 discriminator_optimizer=self.d_optimizer,
+                                 generator=self.generator,
+                                 discriminator=self.discriminator)
+
     def discrim_loss(self, discrim_real, discrim_generated):
         loss = self.loss_object(
                 tf.ones_like(discrim_real), discrim_real)
@@ -155,6 +162,22 @@ class Pix2Pix:
         total = gan_loss + (self.LAMBDA * l1_loss)
 
         return total, gan_loss, l1_loss
+
+    def generate_images(self, test_input, tar):
+        prediction = self.generator(test_input, training=True)
+        plt.figure(figsize=(15,15))
+
+        display_list = [test_input[0], tar[0], prediction[0]]
+        title = ['Input Image', 'Ground Truth', 'Predicted Image']
+
+        for i in range(3):
+            plt.subplot(1, 3, i+1)
+            plt.title(title[i])
+            # getting the pixel values between [0, 1] to plot it.
+            plt.imshow(display_list[i] * 0.5 + 0.5)
+            plt.axis('off')
+        plt.show()
+        plt.close()
 
     @tf.function
     def train_step(self, input_image, target, epoch):
@@ -180,7 +203,10 @@ class Pix2Pix:
             tf.summary.scalar('disc_loss', disc_loss, step=epoch)
     
 
-    def fit(self, train_ds, epochs, size):
+    def fit(self, train_ds, epochs, size, verbose=False, val_ds=None):
+        if verbose:
+            assert val_ds is not None, "Validation dataset is None, please include a validation set"
+
         for epoch in range(epochs):
             start = time.time()
             progbar = tf.keras.utils.Progbar(size)
@@ -189,6 +215,15 @@ class Pix2Pix:
                 progbar.update(i + 1)
                 i += 1
                 self.train_step(input_image, target, epoch)
-
             tf.print('Time taken for epoch {} is {} sec\n'.format(epoch + 1,
                                                         time.time()-start))
+            if verbose:
+                tf.print("\nCurrent Generator Progress\n")
+                for input, target in val_ds.take(3):
+                    self.generate_images(input, target)
+
+            if (epoch + 1) % 20 == 0:
+                self.checkpoint.save(file_prefix=self.checkpoint_dir) 
+                tf.print("saved model to {}".format(self.checkpoint_dir))
+
+            

@@ -93,11 +93,33 @@ def load_image_test(image_file):
 
   return input_image, real_image
 
-train_dataset = tf.data.Dataset.list_files(PATH+'train/*.jpg')
+def generate_images(model, test_input, tar):
+    prediction = model(test_input, training=True)
+    plt.figure(figsize=(15,15))
+
+    display_list = [test_input[0], tar[0], prediction[0]]
+    title = ['Input Image', 'Ground Truth', 'Predicted Image']
+
+    for i in range(3):
+      plt.subplot(1, 3, i+1)
+      plt.title(title[i])
+      # getting the pixel values between [0, 1] to plot it.
+      plt.imshow(display_list[i] * 0.5 + 0.5)
+      plt.axis('off')
+    plt.show()
+
+train_val_dataset = tf.data.Dataset.list_files(PATH+'train/*.jpg')
+# we want to split the dataset into .75 train .25 val
+split = 3
+train_dataset = train_val_dataset.window(split, split+1).flat_map(lambda ds: ds)
 train_dataset = train_dataset.map(load_image_train,
                                   num_parallel_calls=tf.data.experimental.AUTOTUNE)
-train_dataset = train_dataset.shuffle(BUFFER_SIZE)
+train_dataset = train_dataset.shuffle(int(BUFFER_SIZE*.75))
 train_dataset = train_dataset.batch(BATCH_SIZE)
+
+val_dataset = train_val_dataset.skip(split).window(1, split+1).flat_map(lambda ds: ds)
+val_dataset = val_dataset.map(load_image_test)
+val_dataset = val_dataset.batch(BATCH_SIZE)
 
 test_dataset = tf.data.Dataset.list_files(PATH+'test/*.jpg')
 test_dataset = test_dataset.map(load_image_test)
@@ -111,9 +133,10 @@ loss_object = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
 gan.compile(discriminator_optimizer, generator_optimizer, loss_object)
 
-EPOCHS = 1
+EPOCHS = 150
 
-gan.fit(train_dataset, epochs=EPOCHS, size=400)
+gan.fit(train_dataset, epochs=EPOCHS, size=300, verbose=True, val_ds=val_dataset)
 
-
+for inp, tar in test_dataset.take(5):
+  generate_images(gan.generator, inp, tar)
 
