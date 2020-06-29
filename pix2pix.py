@@ -21,7 +21,9 @@ class Pix2Pix:
         self.writer = tf.summary.create_file_writer(
             self.log_dir + "fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         )
-        self.losses = defaultdict(list)
+        self.writer2 = tf.summary.create_file_writer(
+            self.log_dir + "fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        )
         
 
     def upsample(self, filters, size, apply_dropout=False):
@@ -203,6 +205,7 @@ class Pix2Pix:
             tf.summary.scalar('gen_l1_loss', gen_l1_loss, step=epoch)
             tf.summary.scalar('disc_loss', disc_loss, step=epoch)
             tf.summary.scalar('loss', real_loss, step=epoch, description="Real Loss")
+        with self.writer2.as_default():
             tf.summary.scalar('loss', fake_loss, step=epoch, description="Fake Loss")
 
     
