@@ -152,7 +152,7 @@ class Pix2Pix:
         gen_loss = self.loss_object(tf.zeros_like(discrim_generated), 
                         discrim_generated)
 
-        return loss + gen_loss
+        return loss + gen_loss, real_loss, fake_loss
 
     def gen_loss(self, disc_output, gen_output, target):
         gan_loss = self.loss_object(
@@ -189,7 +189,7 @@ class Pix2Pix:
             disc_gen = self.discriminator([input_image, gen_output], training=True)
 
             gen_total_loss, gen_gan_loss, gen_l1_loss = self.gen_loss(disc_gen, gen_output, target)
-            disc_loss = self.discrim_loss(disc_real, disc_gen)
+            disc_loss, real_loss, fake_loss = self.discrim_loss(disc_real, disc_gen)
 
         gen_grad = gen_tape.gradient(gen_total_loss, self.generator.trainable_variables)
         disc_grad = disc_tape.gradient(disc_loss, self.discriminator.trainable_variables)
@@ -202,16 +202,15 @@ class Pix2Pix:
             tf.summary.scalar('gen_gan_loss', gen_gan_loss, step=epoch)
             tf.summary.scalar('gen_l1_loss', gen_l1_loss, step=epoch)
             tf.summary.scalar('disc_loss', disc_loss, step=epoch)
+            tf.summary.scalar('loss', real_loss, step=epoch, description="Real Loss")
+            tf.summary.scalar('loss', fake_loss, step=epoch, description="Fake Loss")
 
-        return disc_real, disc_gen
     
 
     def fit(self, train_ds, epochs, size, verbose=False, val_ds=None):
         if verbose:
             assert val_ds is not None, "Validation dataset is None, please include a validation set"
 
-        real_acc = tf.keras.metrics.Accuracy()
-        fake_acc = tf.keras.metrics.Accuracy()
         for epoch in range(epochs):
             start = time.time()
             progbar = tf.keras.utils.Progbar(size)
@@ -219,13 +218,7 @@ class Pix2Pix:
             for (input_image, target) in train_ds:
                 progbar.update(i + 1)
                 i += 1
-                real, gen = self.train_step(input_image, target, epoch)
-                real_acc.update_state(tf.ones_like(real), real)
-                fake_acc.update_state(tf.zeros_like(gen), gen)
-
-                with self.writer.as_default():
-                    tf.summary.scalar('real accuracy', real_acc.result(), step=epoch)
-                    tf.summary.scalar('fake accuracy', fake_acc.result(), step=epoch)
+                self.train_step(input_image, target, epoch)
 
             tf.print('Time taken for epoch {} is {} sec\n'.format(epoch + 1,
                                                         time.time()-start))
