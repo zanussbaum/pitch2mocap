@@ -3,6 +3,7 @@ import datetime
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
+from collections import defaultdict
 
 class Pix2Pix:
     """TF2.0 version of Pix2Pix model with inspiration from TChollet
@@ -20,6 +21,7 @@ class Pix2Pix:
         self.writer = tf.summary.create_file_writer(
             self.log_dir + "fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         )
+        self.losses = defaultdict(list)
         
 
     def upsample(self, filters, size, apply_dropout=False):
@@ -143,7 +145,6 @@ class Pix2Pix:
                                  discriminator_optimizer=self.d_optimizer,
                                  generator=self.generator,
                                  discriminator=self.discriminator)
-
     def discrim_loss(self, discrim_real, discrim_generated):
         loss = self.loss_object(
                 tf.ones_like(discrim_real), discrim_real)
@@ -201,12 +202,16 @@ class Pix2Pix:
             tf.summary.scalar('gen_gan_loss', gen_gan_loss, step=epoch)
             tf.summary.scalar('gen_l1_loss', gen_l1_loss, step=epoch)
             tf.summary.scalar('disc_loss', disc_loss, step=epoch)
+
+        return disc_real, disc_gen
     
 
     def fit(self, train_ds, epochs, size, verbose=False, val_ds=None):
         if verbose:
             assert val_ds is not None, "Validation dataset is None, please include a validation set"
 
+        real_acc = tf.keras.metrics.Accuracy()
+        fake_acc = tf.keras.metrics.Accuracy()
         for epoch in range(epochs):
             start = time.time()
             progbar = tf.keras.utils.Progbar(size)
@@ -214,7 +219,14 @@ class Pix2Pix:
             for (input_image, target) in train_ds:
                 progbar.update(i + 1)
                 i += 1
-                self.train_step(input_image, target, epoch)
+                real, gen = self.train_step(input_image, target, epoch)
+                real_acc.update_state(tf.ones_like(real), real)
+                fake_acc.update_state(tf.zeros_like(gen), gen)
+
+                with self.writer.as_default():
+                    tf.summary.scalar('real accuracy', real_acc.result(), step=epoch)
+                    tf.summary.scalar('fake accuracy', fake_acc.result(), step=epoch)
+
             tf.print('Time taken for epoch {} is {} sec\n'.format(epoch + 1,
                                                         time.time()-start))
             if verbose:
@@ -225,5 +237,4 @@ class Pix2Pix:
             if (epoch + 1) % 20 == 0:
                 self.checkpoint.save(file_prefix=self.checkpoint_dir) 
                 tf.print("saved model to {}".format(self.checkpoint_dir))
-
             
