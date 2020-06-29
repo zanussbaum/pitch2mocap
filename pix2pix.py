@@ -152,7 +152,7 @@ class Pix2Pix:
         gen_loss = self.loss_object(tf.zeros_like(discrim_generated), 
                         discrim_generated)
 
-        return loss + gen_loss, real_loss, fake_loss
+        return loss + gen_loss, loss, gen_loss
 
     def gen_loss(self, disc_output, gen_output, target):
         gan_loss = self.loss_object(
