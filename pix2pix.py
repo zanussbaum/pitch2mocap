@@ -147,6 +147,7 @@ class Pix2Pix:
                                  discriminator_optimizer=self.d_optimizer,
                                  generator=self.generator,
                                  discriminator=self.discriminator)
+
     def discrim_loss(self, discrim_real, discrim_generated):
         loss = self.loss_object(
                 tf.ones_like(discrim_real), discrim_real)
@@ -233,4 +234,7 @@ class Pix2Pix:
             if (epoch + 1) % 20 == 0:
                 self.checkpoint.save(file_prefix=self.checkpoint_dir) 
                 tf.print("saved model to {}".format(self.checkpoint_dir))
+
+        self.checkpoint.save(file_prefix=self.checkpoint_dir)
+
             
