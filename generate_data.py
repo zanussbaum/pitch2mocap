@@ -50,18 +50,18 @@ wrapper = set_params()
 @click.command()
 @click.option("--file", type=click.Path(exists=True), required=True)
 @click.option("--directory", type=str, default="data")
-@click.option("--save/--no-save", default=True)
-def cli(file, directory, save):
-    generate_data(file, directory, will_save=save)
+def cli(file, directory):
+    generate_data(file, directory)
 
 def process_frame(frame):
     datum = op.Datum()
     datum.cvInputData = frame
     wrapper.emplaceAndPop([datum])
-    return frame, datum.cvOutputData
+    gray = cv.cvtColor(datum.cvOutputData-frame, cv.COLOR_RGB2GRAY)
+    ret, binary = cv.threshold(gray, 0, 255, cv.THRESH_BINARY)
+    return frame, binary
     
-
-def generate_data(file, directory, will_save=True):
+def generate_data(file, directory):
     if not os.path.exists(directory):
         os.makedirs(directory)
     
@@ -71,7 +71,6 @@ def generate_data(file, directory, will_save=True):
         exit()
 
 
-    
     thread_num = cv.getNumberOfCPUs()
     pool = ThreadPool(processes=thread_num)
     pending = deque()
