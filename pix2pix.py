@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from collections import defaultdict
 
-class Pix2Pix:
+class Pix2Pix(tf.keras.Model):
     """TF2.0 version of Pix2Pix model with inspiration from TChollet
     https://github.com/keras-team/keras-io/blob/master/examples/generative/dcgan_overriding_train_step.py
     and https://www.tensorflow.org/tutorials/generative/pix2pix
@@ -13,18 +13,10 @@ class Pix2Pix:
     OUTPUT_CHANNELS = 3
     LAMBDA = 100
     def __init__(self, img_shape=(256,256,3)):
+        super(Pix2Pix, self).__init__()
         self.img_shape = img_shape
         self.discriminator = self.build_discrimiator()
         self.generator = self.build_generator()
-        self.log_dir = 'logs/'
-        self.checkpoint_dir = 'checkpoint/ckpt'
-        self.writer = tf.summary.create_file_writer(
-            self.log_dir + "fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        )
-        self.writer2 = tf.summary.create_file_writer(
-            self.log_dir + "val/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        )
-        
 
     def upsample(self, filters, size, apply_dropout=False):
         initializer = tf.random_normal_initializer(0., 0.02)
@@ -139,6 +131,7 @@ class Pix2Pix:
         return tf.keras.Model(inputs=inputs, outputs=x)
 
     def compile(self, d_optimizer, g_optimizer, loss_object):
+        super(Pix2Pix, self).compile()
         self.d_optimizer = d_optimizer
         self.g_optimizer = g_optimizer
         self.loss_object = loss_object
@@ -183,8 +176,12 @@ class Pix2Pix:
         plt.show()
         plt.close()
 
-    @tf.function
-    def train_step(self, input_image, target, epoch):
+
+    def train_step(self, images):
+        if isinstance(images, tuple):
+            input_image = images[0]
+            target = images[1]
+            
         with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
             gen_output = self.generator(input_image, training=True)
 
@@ -200,41 +197,3 @@ class Pix2Pix:
         self.g_optimizer.apply_gradients(zip(gen_grad, self.generator.trainable_variables))
         self.d_optimizer.apply_gradients(zip(disc_grad, self.discriminator.trainable_variables))
 
-        with self.writer.as_default():
-            tf.summary.scalar('gen_total_loss', gen_total_loss, step=epoch)
-            tf.summary.scalar('gen_gan_loss', gen_gan_loss, step=epoch)
-            tf.summary.scalar('gen_l1_loss', gen_l1_loss, step=epoch)
-            tf.summary.scalar('disc_loss', disc_loss, step=epoch)
-            tf.summary.scalar('loss', real_loss, step=epoch)
-        with self.writer2.as_default():
-            tf.summary.scalar('loss', fake_loss, step=epoch)
-
-    
-
-    def fit(self, train_ds, epochs, size, verbose=False, val_ds=None):
-        if verbose:
-            assert val_ds is not None, "Validation dataset is None, please include a validation set"
-
-        for epoch in range(epochs):
-            start = time.time()
-            progbar = tf.keras.utils.Progbar(size)
-            i = 0
-            for (input_image, target) in train_ds:
-                progbar.update(i + 1)
-                i += 1
-                self.train_step(input_image, target, epoch)
-
-            tf.print('Time taken for epoch {} is {} sec\n'.format(epoch + 1,
-                                                        time.time()-start))
-            if verbose:
-                tf.print("\nCurrent Generator Progress\n")
-                for input, target in val_ds.take(3):
-                    self.generate_images(input, target)
-
-            if (epoch + 1) % 20 == 0:
-                self.checkpoint.save(file_prefix=self.checkpoint_dir) 
-                tf.print("saved model to {}".format(self.checkpoint_dir))
-
-        self.checkpoint.save(file_prefix=self.checkpoint_dir)
-
-            
