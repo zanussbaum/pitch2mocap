@@ -18,6 +18,11 @@ class Pix2Pix(tf.keras.Model):
         self.discriminator = self.build_discrimiator()
         self.generator = self.build_generator()
 
+
+    def call(self, inputs):
+        x = self.generator(inputs, training=True)
+        return x
+
     def upsample(self, filters, size, apply_dropout=False):
         initializer = tf.random_normal_initializer(0., 0.02)
 
@@ -181,7 +186,7 @@ class Pix2Pix(tf.keras.Model):
         if isinstance(images, tuple):
             input_image = images[0]
             target = images[1]
-            
+
         with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
             gen_output = self.generator(input_image, training=True)
 
@@ -197,3 +202,6 @@ class Pix2Pix(tf.keras.Model):
         self.g_optimizer.apply_gradients(zip(gen_grad, self.generator.trainable_variables))
         self.d_optimizer.apply_gradients(zip(disc_grad, self.discriminator.trainable_variables))
 
+        return {'d_loss': disc_loss, 'gen_total': gen_total_loss,
+                'g_loss': gen_gan_loss, 'g_l1_loss': gen_l1_loss
+                }
